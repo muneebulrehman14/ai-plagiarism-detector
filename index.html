@@ -2956,13 +2956,14 @@
         // Also skip if already high score
         if (currentScore > 75) return { boost: 0, signals: [] };
         
-        // PATTERN 1: Suspiciously perfect text (no errors, no slang)
+        // PATTERN 1: Suspiciously perfect text (no errors, no slang, no contractions)
+        // Contractions are a HUMAN signal — their presence means text is less likely AI.
         const hasNoTypos = !lower.match(/\b(teh|recieve|seperate|definately|alot|should of|could of|would of|their is|there are)\b/gi);
         const hasNoSlang = !lower.match(/\b(lol|omg|tbh|idk|ngl|tho|rn|bc|cuz|smh|af|fyi|imo|irl|btw|jk|wyd|wtf|gtg)\b/gi);
-        const hasContractions = /(don't|can't|won't|isn't|it's|i'm|you're|that's|what's|we're|they're|i've|you've|we've|they've)/i.test(text);
+        const hasNoContractions = !/(don't|can't|won't|isn't|it's|i'm|you're|that's|what's|we're|they're|i've|you've|we've|they've)/i.test(text);
         
-        // Humans make mistakes. AI is perfect.
-        if (hasNoTypos && hasNoSlang && hasContractions && wordCount > 50 && wordCount < 400 && currentScore < 70) {
+        // AI tends to be typo-free, slang-free, AND contraction-free in formal mode.
+        if (hasNoTypos && hasNoSlang && hasNoContractions && wordCount > 50 && wordCount < 400 && currentScore < 70) {
             boost += 28;
             signals.push({ pattern: "suspiciously_perfect_text", boost: 28 });
         }
@@ -3877,8 +3878,9 @@
             const sFirstPerson = (sentence.match(/\b(i|me|my|myself)\b/gi)||[]).length / sN;
             const sInformal = sWords.filter(w => INFORMAL.has(w)).length / sN;
             const sAiPhrases = AI_PHRASES.filter(p => sentence.toLowerCase().includes(p)).length;
-            sScore += sAiVocab * 120 + sAiPhrases * 25;
-            sScore -= sContractions * 200 + sFirstPerson * 150 + sInformal * 180;
+            // Weights mirror the main pipeline (reduced from 120/200/150/180 to avoid saturation)
+            sScore += sAiVocab * 80 + sAiPhrases * 20;
+            sScore -= sContractions * 120 + sFirstPerson * 90 + sInformal * 110;
             sScore = Math.max(0, Math.min(100, sScore));
             return {
                 index: idx + 1,
@@ -4067,12 +4069,8 @@
         const neutralFix = fixNeutralTextFalsePositive(text, finalScore);
         finalScore = Math.max(5, finalScore - neutralFix);
 
-        // Apply final modern AI detection boost (catches ChatGPT with no obvious markers)
-        const modernFinalResult = detectModernAI(text, finalScore);
-        finalScore = Math.min(95, finalScore + modernFinalResult.boost);
-        if (modernFinalResult.signals.length > 0 && window.currentSignals) {
-            window.currentSignals.push(...modernFinalResult.signals);
-        }
+        // NOTE: detectModernAI is already applied above at the rawBlendedScore stage.
+        // Calling it a second time here was doubling its boost — removed.
 
         return {
             aiScore: finalScore,
