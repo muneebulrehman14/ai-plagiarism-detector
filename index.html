@@ -4006,6 +4006,89 @@
                 console.log(`📧 Email detected - reduced to ${finalScore}%`);
             }
         }
+
+        // ============================================================
+        // CREATIVE WRITING / STORY DETECTION
+        // ============================================================
+
+        // Pattern 1: Story openings (AI loves these)
+        const storyOpenings = [
+            "the old house stood",
+            "the house stood",
+            "the rain fell",
+            "the sun set",
+            "the wind howled",
+            "the door creaked",
+            "the lights flickered",
+            "no one had lived",
+            "for thirty years",
+            "staring into the night",
+            "like empty eyes",
+            "neighbors pretended",
+            "crossed the street",
+            "told their children",
+            "wondered the same thing"
+        ];
+
+        let storyCount = 0;
+        for (const phrase of storyOpenings) {
+            if (lower.includes(phrase)) {
+                storyCount++;
+            }
+        }
+
+        if (storyCount >= 2) {
+            finalScore = Math.min(95, finalScore + 30);
+            if (window.currentSignals) {
+                window.currentSignals.push(`🔴 Creative story pattern detected (${storyCount} markers) - AI generated story`);
+            }
+        }
+
+        // Pattern 2: Descriptive sensory language (AI overuses)
+        const sensoryWords = [
+            "darkness", "shadow", "whisper", "echo", "flicker", "glow",
+            "empty", "ancient", "frozen", "silent", "cold", "warm",
+            "softly", "slowly", "gently", "suddenly", "carefully"
+        ];
+
+        let sensoryCount = 0;
+        for (const word of sensoryWords) {
+            if (lower.includes(word)) {
+                sensoryCount++;
+            }
+        }
+
+        if (sensoryCount >= 4 && N < 300) {
+            finalScore = Math.min(95, finalScore + 20);
+            if (window.currentSignals) {
+                window.currentSignals.push(`🔴 Rich sensory language (${sensoryCount} words) - AI descriptive style`);
+            }
+        }
+
+        // Pattern 3: Atmospheric setting descriptions
+        const atmosphereMarkers = [
+            "stood at the end",
+            "windows like",
+            "no one had",
+            "pretended not to notice",
+            "stayed away",
+            "everyone wondered"
+        ];
+
+        let atmosphereCount = 0;
+        for (const marker of atmosphereMarkers) {
+            if (lower.includes(marker)) {
+                atmosphereCount++;
+            }
+        }
+
+        if (atmosphereCount >= 2) {
+            finalScore = Math.min(95, finalScore + 25);
+            if (window.currentSignals) {
+                window.currentSignals.push(`🔴 Atmospheric setting description - AI creative writing`);
+            }
+        }
+        
         const finalConfidence = trainedNNModel ? nnConfidence : (1 - marginOfError / 100);
         
         console.log(`🎯 Score pipeline: universal=${universalScore.toFixed(1)}% | raw=${rawBlendedScore.toFixed(1)}% + boosts(casual=${casualResult.boost.toFixed(1)}%,modern=${modernResult.boost}%) → boosted=${boostedScore.toFixed(1)}% → clamped=${adjustedScore.toFixed(1)}% → email(${emailResult.reduce}%) → final=${finalScore.toFixed(1)}%`);
