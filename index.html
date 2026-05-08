@@ -3716,7 +3716,16 @@
     }
 
     async function performFullAnalysis(text) {
-        const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 5);
+        // Split sentences while preserving delimiters and original text
+        const sentenceMatches = Array.from(text.matchAll(/[^.!?]+[.!?]+/g));
+        const sentences = sentenceMatches.map(m => m[0].trim()).filter(s => s.length > 5);
+        const sentenceBoundaries = sentenceMatches
+            .filter(m => m[0].trim().length > 5)
+            .map(m => ({
+                text: m[0].trim(),
+                start: m.index,
+                end: m.index + m[0].length
+            }));
         const words = text.toLowerCase().match(/\b[a-z]+\b/g) || [];
         const N = words.length || 1;
         const S = sentences.length || 1;
@@ -3882,9 +3891,11 @@
             sScore += sAiVocab * 80 + sAiPhrases * 20;
             sScore -= sContractions * 120 + sFirstPerson * 90 + sInformal * 110;
             sScore = Math.max(0, Math.min(100, sScore));
+            // Use the original text with punctuation from boundaries if available
+            const originalText = sentenceBoundaries[idx] ? sentenceBoundaries[idx].text : sentence.trim();
             return {
                 index: idx + 1,
-                text: sentence.trim(),
+                text: originalText,
                 aiScore: sScore,
                 plagiarism: plagiarismMatches.filter(m => m.sentence === idx),
                 perplexity: sScore / 100
@@ -4269,16 +4280,18 @@
     function generateHighlightedText(text, sentenceAnalysis) {
         let result = text;
         
-        // Sort by position and apply highlights
-        const offsets = [];
-        let currentOffset = 0;
+        // Process in REVERSE order to avoid offset issues when inserting HTML
+        const reversedAnalysis = [...sentenceAnalysis].reverse();
         
-        sentenceAnalysis.forEach(analysis => {
+        reversedAnalysis.forEach(analysis => {
             const { text: sentText, aiScore, plagiarism } = analysis;
             
-            // Find position
-            const pos = result.indexOf(sentText, currentOffset);
-            if (pos === -1) return;
+            // Find position - use lastIndexOf for reverse processing
+            const pos = result.lastIndexOf(sentText);
+            if (pos === -1) {
+                console.log(`⚠️ Could not find sentence for highlighting: "${sentText.substring(0, 50)}..."`);
+                return;
+            }
             
             let className = 'highlight-ok';
             if (aiScore > 65) className = 'highlight-ai';
@@ -4289,12 +4302,16 @@
                 className = 'highlight-plagiarism';
             }
             
+            // Escape HTML in the sentence text to prevent XSS
+            const escapedSentText = sentText
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+            
             // Wrap in span
             const before = result.substring(0, pos);
             const after = result.substring(pos + sentText.length);
-            result = before + `<span class="${className}" title="AI: ${aiScore.toFixed(0)}%">${sentText}</span>` + after;
-            
-            currentOffset = pos + sentText.length + 50; // Account for added HTML
+            result = before + `<span class="${className}" title="AI: ${aiScore.toFixed(0)}%">${escapedSentText}</span>` + after;
         });
         
         return result;
