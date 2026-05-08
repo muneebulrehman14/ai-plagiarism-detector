@@ -2753,9 +2753,11 @@
             return;
         }
         
-        // Check for non-English
-        const nonEnglish = /[^\x00-\x7F]/.test(text);
-        if (nonEnglish) {
+        // Check for non-English (non-Latin scripts only - allow emojis, smart quotes, etc.)
+        // Blocks: Arabic, Cyrillic, Greek, Hebrew, CJK (Chinese/Japanese/Korean), Devanagari, etc.
+        const nonLatinScripts = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\u0400-\u04FF\u0370-\u03FF\u0590-\u05FF\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF\uAC00-\uD7AF\u0900-\u097F\u0E00-\u0E7F]/;
+        const hasNonLatin = nonLatinScripts.test(text);
+        if (hasNonLatin) {
             document.getElementById('languageWarning').style.display = 'inline';
         } else {
             document.getElementById('languageWarning').style.display = 'none';
